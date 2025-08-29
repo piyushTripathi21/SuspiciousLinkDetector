@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suspicious Link Detector</title>
+    <!-- Use Tailwind CSS via CDN for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+    <div class="bg-white rounded-xl shadow-lg p-8 w-full max-w-2xl text-center">
+        <!-- Title and description section -->
+        <div class="flex flex-col items-center justify-center">
+            <i class="fas fa-link text-4xl text-gray-700 mb-2"></i>
+            <h2 class="text-3xl font-bold text-gray-800 mb-2">Suspicious Link Detector</h2>
+            <p class="text-gray-600 mb-6">Enter a URL to check if it's safe or potentially suspicious.</p>
+        </div>
+        
+        <!-- URL input and scan button -->
+        <div class="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4 mb-8">
+            <input type="text" id="urlInput" placeholder="https://example.com"
+                class="flex-1 w-full sm:w-auto p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow">
+            <button onclick="scanURL()"
+                class="w-full sm:w-auto p-3 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 transition-colors duration-200">
+                <i class="fas fa-search"></i> Scan Link
+            </button>
+        </div>
+
+        <!-- Result message box -->
+        <div id="resultMessage" class="hidden p-4 rounded-lg font-bold mb-6"></div>
+
+        <!-- Scan History section -->
+        <div class="text-left">
+            <h3 class="text-xl font-semibold text-gray-800 mb-3">Scan History</h3>
+            <ul id="historyList" class="space-y-2"></ul>
+        </div>
+    </div>
+    
+    <!-- Embedded JavaScript for functionality -->
+    <script>
+        // Validate URL format
+        function isValidURL(url) {
+            const pattern = new RegExp('^(https?:\\/\\/)?'+ // protocol
+                '((([a-z\\d]([a-z\\d-]*[a-z\\d])*))\\.)+([a-z]{2,})'+ // domain
+                '(\\:\\d+)?(\\/[-a-z\\d%_.~+]*)*'+ // port and path
+                '(\\?[;&a-z\\d%_.~+=-]*)?'+ // query string
+                '(\\#[-a-z\\d_]*)?$','i');
+            return !!pattern.test(url);
+        }
+
+        // Show the result message to the user
+        function showResult(message, isSafe) {
+            const resultBox = document.getElementById("resultMessage");
+            resultBox.textContent = message;
+            resultBox.classList.remove("hidden", "bg-green-100", "text-green-800", "bg-red-100", "text-red-800");
+            
+            if (isSafe) {
+                resultBox.classList.add("bg-green-100", "text-green-800");
+            } else {
+                resultBox.classList.add("bg-red-100", "text-red-800");
+            }
+            resultBox.style.display = "block";
+        }
+
+        // Add a new scan entry to the history
+        function updateHistory(url, status) {
+            const entry = { url, status };
+            let history = JSON.parse(localStorage.getItem("scanHistory")) || [];
+            history.unshift(entry);
+            localStorage.setItem("scanHistory", JSON.stringify(history));
+
+            renderHistory();
+        }
+
+        // Render the scan history from local storage
+        function renderHistory() {
+            const historyList = document.getElementById("historyList");
+            const history = JSON.parse(localStorage.getItem("scanHistory")) || [];
+            historyList.innerHTML = "";
+            history.forEach(item => {
+                const li = document.createElement("li");
+                li.textContent = `${item.url} - ${item.status}`;
+                
+                let iconClass = '';
+                let bgColor = '';
+                let textColor = '';
+
+                if (item.status === "Safe") {
+                    iconClass = "fa-check-circle";
+                    bgColor = "bg-green-100";
+                    textColor = "text-green-800";
+                } else {
+                    iconClass = "fa-exclamation-triangle";
+                    bgColor = "bg-red-100";
+                    textColor = "text-red-800";
+                }
+
+                li.innerHTML = `<i class="fas ${iconClass} mr-2 ${textColor}"></i><span class="font-medium">${item.url}</span> - <span class="font-bold">${item.status}</span>`;
+                li.className = `p-3 rounded-md ${bgColor} shadow-sm`;
+                historyList.appendChild(li);
+            });
+        }
+
+        // Function to handle the URL scan
+        async function scanURL() {
+            const urlInput = document.getElementById("urlInput").value.trim();
+
+            if (!isValidURL(urlInput)) {
+                showResult("⚠️ Please enter a valid URL.", false);
+                return;
+            }
+
+            try {
+                // Display a loading message
+                showResult("⏳ Scanning...", false);
+
+                const response = await fetch("http://127.0.0.1:5000/scan", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ url: urlInput })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                const message = data.result === "Safe" ? "✅ The URL is safe." : "⚠️ Suspicious link detected!";
+                showResult(message, data.result === "Safe");
+                updateHistory(urlInput, data.result);
+
+            } catch (error) {
+                console.error("Error:", error);
+                showResult("❌ An error occurred while scanning the URL. Make sure the Python server is running.", false);
+            }
+        }
+        
+        // Load history when the page loads
+        window.onload = renderHistory;
+    </script>
+</body>
+</html>
