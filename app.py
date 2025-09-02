@@ -17,12 +17,6 @@ model = load("model.pkl")
 def extract_advanced_features(url):
     """
     Extracts a comprehensive set of numerical features from a given URL string.
-    
-    Args:
-        url (str): The URL to analyze.
-        
-    Returns:
-        dict: A dictionary of advanced features.
     """
     try:
         if not isinstance(url, str) or not url.strip():
@@ -51,7 +45,9 @@ def extract_advanced_features(url):
             "count_digits": sum(c.isdigit() for c in url),
             "num_subdomains": len(hostname.split('.')) - 2,
             "is_shortened": is_shortened,
-            "has_suspicious_words": int(any(word in url.lower() for word in ["login", "verify", "update", "secure", "free", "account", "paypal", "bank", "sign", "insecure", "virus"]))
+            "has_suspicious_words": int(any(word in url.lower() for word in [
+                "login", "verify", "update", "secure", "free", "account", "paypal", "bank", "sign", "insecure", "virus"
+            ]))
         }
         return features
     except Exception as e:
@@ -74,6 +70,11 @@ def scan():
     if not url:
         return jsonify({"result": "Error: No URL provided"}), 400
 
+    # --- Manual Rule for HTTP (without HTTPS) ---
+    parsed_url = urlparse(url)
+    if parsed_url.scheme == "http":
+        return jsonify({"result": "Suspicious (No HTTPS found)"}), 200
+
     # Extract advanced features from the input URL
     features = extract_advanced_features(url)
     
@@ -83,7 +84,7 @@ def scan():
     # Make a prediction using the loaded model
     prediction = model.predict(feature_df)[0]
 
-    # Map the numerical prediction (0 or 1) to a readable result string
+    # Map the numerical prediction to a readable result string
     result = "Suspicious" if prediction == 1 else "Safe"
     
     # Return the result as a JSON response
@@ -92,4 +93,3 @@ def scan():
 # Run the Flask app in debug mode
 if __name__ == "__main__":
     app.run(debug=True)
-
