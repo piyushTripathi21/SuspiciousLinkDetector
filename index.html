@@ -4,148 +4,317 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Suspicious Link Detector</title>
-    <!-- Use Tailwind CSS via CDN for modern styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-        }
+        body { font-family: 'Inter', sans-serif; }
+        .risk-meter-bg { background: linear-gradient(to right, #22c55e, #eab308, #f97316, #ef4444); }
+        .flag-critical { border-left: 4px solid #dc2626; background-color: #fef2f2; }
+        .flag-high { border-left: 4px solid #f97316; background-color: #fff7ed; }
+        .flag-medium { border-left: 4px solid #eab308; background-color: #fefce8; }
+        .flag-low { border-left: 4px solid #3b82f6; background-color: #eff6ff; }
+        @keyframes pulse-scan { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .scanning { animation: pulse-scan 1s ease-in-out infinite; }
     </style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
 
-    <div class="bg-white rounded-xl shadow-lg p-8 w-full max-w-2xl text-center">
-        <!-- Title and description section -->
-        <div class="flex flex-col items-center justify-center">
-            <i class="fas fa-link text-4xl text-gray-700 mb-2"></i>
-            <h2 class="text-3xl font-bold text-gray-800 mb-2">Suspicious Link Detector</h2>
-            <p class="text-gray-600 mb-6">Enter a URL to check if it's safe or potentially suspicious.</p>
+    <div class="bg-white rounded-xl shadow-lg p-8 w-full max-w-2xl">
+        <!-- Header -->
+        <div class="text-center mb-6">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-3">
+                <i class="fas fa-shield-alt text-3xl text-blue-600"></i>
+            </div>
+            <h2 class="text-3xl font-bold text-gray-800">Suspicious Link Detector</h2>
+            <p class="text-gray-500 mt-1">AI-powered URL analysis with 31+ security features</p>
         </div>
-        
-        <!-- URL input and scan button -->
-        <div class="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4 mb-8">
+
+        <!-- Input -->
+        <div class="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-3 mb-6">
             <input type="text" id="urlInput" placeholder="https://example.com"
-                class="flex-1 w-full sm:w-auto p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow">
-            <button onclick="scanURL()"
-                class="w-full sm:w-auto p-3 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 transition-colors duration-200">
-                <i class="fas fa-search"></i> Scan Link
+                class="flex-1 w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow text-sm"
+                onkeypress="if(event.key==='Enter') scanURL()">
+            <button onclick="scanURL()" id="scanBtn"
+                class="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center gap-2">
+                <i class="fas fa-search"></i> Scan
             </button>
         </div>
 
-        <!-- Result message box -->
-        <div id="resultMessage" class="hidden p-4 rounded-lg font-bold mb-6"></div>
+        <!-- Result Panel (hidden by default) -->
+        <div id="resultPanel" class="hidden mb-6">
+            <!-- Result Header -->
+            <div id="resultHeader" class="p-4 rounded-t-lg flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <i id="resultIcon" class="text-2xl"></i>
+                    <div>
+                        <div id="resultLabel" class="text-lg font-bold"></div>
+                        <div id="resultUrl" class="text-sm opacity-80 break-all max-w-md"></div>
+                    </div>
+                </div>
+                <div id="riskBadge" class="px-3 py-1 rounded-full text-sm font-bold"></div>
+            </div>
 
-        <!-- Scan History section -->
+            <!-- Risk Score Meter -->
+            <div class="bg-gray-50 p-4 border-x border-gray-200">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm font-medium text-gray-600">Risk Score</span>
+                    <span id="riskScoreText" class="text-sm font-bold"></span>
+                </div>
+                <div class="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                    <div class="risk-meter-bg h-full rounded-full relative">
+                        <div id="riskMeterOverlay" class="absolute top-0 right-0 h-full bg-gray-200 transition-all duration-700 ease-out" style="width: 100%"></div>
+                    </div>
+                </div>
+                <div class="flex justify-between text-xs text-gray-400 mt-1">
+                    <span>Safe</span>
+                    <span>Low</span>
+                    <span>Medium</span>
+                    <span>High</span>
+                    <span>Critical</span>
+                </div>
+            </div>
+
+            <!-- Risk Flags -->
+            <div id="flagsContainer" class="bg-gray-50 p-4 border-x border-b border-gray-200 rounded-b-lg">
+                <div id="flagsList" class="space-y-2"></div>
+                <!-- Details Toggle -->
+                <button onclick="toggleDetails()" id="detailsToggle" class="hidden mt-3 text-sm text-blue-600 hover:text-blue-800 font-medium">
+                    <i class="fas fa-chevron-down mr-1"></i> Show Technical Details
+                </button>
+                <div id="technicalDetails" class="hidden mt-3 p-3 bg-white rounded-lg border text-xs font-mono space-y-1"></div>
+            </div>
+        </div>
+
+        <!-- Scan History -->
         <div class="text-left">
-            <h3 class="text-xl font-semibold text-gray-800 mb-3">Scan History</h3>
-            <ul id="historyList" class="space-y-2"></ul>
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-lg font-semibold text-gray-800">
+                    <i class="fas fa-history text-gray-400 mr-1"></i> Scan History
+                </h3>
+                <button onclick="clearHistory()" class="text-xs text-gray-400 hover:text-red-500 transition-colors">
+                    <i class="fas fa-trash mr-1"></i> Clear
+                </button>
+            </div>
+            <ul id="historyList" class="space-y-2 max-h-64 overflow-y-auto"></ul>
+            <div id="emptyHistory" class="text-center text-gray-400 text-sm py-4">
+                <i class="fas fa-inbox text-2xl mb-2 block"></i>
+                No scans yet. Enter a URL above to get started.
+            </div>
         </div>
     </div>
-    
-    <!-- Embedded JavaScript for functionality -->
+
     <script>
-        // Validate URL format
         function isValidURL(url) {
-            const pattern = new RegExp('^(https?:\\/\\/)?'+ // protocol
-                '((([a-z\\d]([a-z\\d-]*[a-z\\d])*))\\.)+([a-z]{2,})'+ // domain
-                '(\\:\\d+)?(\\/[-a-z\\d%_.~+]*)*'+ // port and path
-                '(\\?[;&a-z\\d%_.~+=-]*)?'+ // query string
+            const pattern = new RegExp('^(https?:\\/\\/)?'+
+                '((([a-z\\d]([a-z\\d-]*[a-z\\d])*))\\.)+([a-z]{2,})'+
+                '(\\:\\d+)?(\\/[-a-z\\d%_.~+]*)*'+
+                '(\\?[;&a-z\\d%_.~+=-]*)?'+
                 '(\\#[-a-z\\d_]*)?$','i');
             return !!pattern.test(url);
         }
 
-        // Show the result message to the user
-        function showResult(message, isSafe) {
-            const resultBox = document.getElementById("resultMessage");
-            resultBox.textContent = message;
-            resultBox.classList.remove("hidden", "bg-green-100", "text-green-800", "bg-red-100", "text-red-800");
-            
+        function showResultPanel(data, url) {
+            const panel = document.getElementById("resultPanel");
+            const header = document.getElementById("resultHeader");
+            const icon = document.getElementById("resultIcon");
+            const label = document.getElementById("resultLabel");
+            const urlText = document.getElementById("resultUrl");
+            const badge = document.getElementById("riskBadge");
+            const scoreText = document.getElementById("riskScoreText");
+            const overlay = document.getElementById("riskMeterOverlay");
+            const flagsList = document.getElementById("flagsList");
+            const detailsToggle = document.getElementById("detailsToggle");
+            const details = document.getElementById("technicalDetails");
+
+            panel.classList.remove("hidden");
+            urlText.textContent = url;
+
+            const isSafe = data.result === "Safe";
+            const score = data.risk_score;
+
+            // Header styling
             if (isSafe) {
-                resultBox.classList.add("bg-green-100", "text-green-800");
+                header.className = "p-4 rounded-t-lg flex items-center justify-between bg-green-50 text-green-800";
+                icon.className = "fas fa-check-circle text-2xl text-green-500";
+                label.textContent = "URL appears Safe";
+                badge.className = "px-3 py-1 rounded-full text-sm font-bold bg-green-200 text-green-800";
             } else {
-                resultBox.classList.add("bg-red-100", "text-red-800");
+                const colors = {
+                    "Critical": { bg: "bg-red-50", text: "text-red-800", icon: "text-red-500", badgeBg: "bg-red-200", badgeText: "text-red-800" },
+                    "High": { bg: "bg-orange-50", text: "text-orange-800", icon: "text-orange-500", badgeBg: "bg-orange-200", badgeText: "text-orange-800" },
+                    "Medium": { bg: "bg-yellow-50", text: "text-yellow-800", icon: "text-yellow-500", badgeBg: "bg-yellow-200", badgeText: "text-yellow-800" },
+                    "Low": { bg: "bg-blue-50", text: "text-blue-800", icon: "text-blue-500", badgeBg: "bg-blue-200", badgeText: "text-blue-800" },
+                };
+                const c = colors[data.risk_level] || colors["Medium"];
+                header.className = `p-4 rounded-t-lg flex items-center justify-between ${c.bg} ${c.text}`;
+                icon.className = `fas fa-exclamation-triangle text-2xl ${c.icon}`;
+                label.textContent = "Suspicious Link Detected!";
+                badge.className = `px-3 py-1 rounded-full text-sm font-bold ${c.badgeBg} ${c.badgeText}`;
             }
-            resultBox.style.display = "block";
+            badge.textContent = data.risk_level;
+
+            // Risk score meter
+            scoreText.textContent = `${score}/100`;
+            setTimeout(() => {
+                overlay.style.width = `${100 - score}%`;
+            }, 100);
+
+            // Risk flags
+            flagsList.innerHTML = "";
+            if (data.flags && data.flags.length > 0) {
+                data.flags.forEach(f => {
+                    const div = document.createElement("div");
+                    div.className = `p-3 rounded-md flag-${f.severity}`;
+                    const severityIcons = {
+                        critical: "fa-skull-crossbones text-red-600",
+                        high: "fa-exclamation-circle text-orange-500",
+                        medium: "fa-exclamation-triangle text-yellow-600",
+                        low: "fa-info-circle text-blue-500"
+                    };
+                    const iconClass = severityIcons[f.severity] || severityIcons.medium;
+                    div.innerHTML = `
+                        <div class="flex items-center gap-2">
+                            <i class="fas ${iconClass}"></i>
+                            <span class="font-semibold text-sm">${escapeHtml(f.flag)}</span>
+                            <span class="text-xs uppercase px-2 py-0.5 rounded-full bg-white bg-opacity-60 font-medium">${escapeHtml(f.severity)}</span>
+                        </div>
+                        <p class="text-xs text-gray-600 mt-1 ml-6">${escapeHtml(f.detail)}</p>
+                    `;
+                    flagsList.appendChild(div);
+                });
+            } else {
+                flagsList.innerHTML = '<p class="text-sm text-green-600"><i class="fas fa-check mr-1"></i> No risk flags detected</p>';
+            }
+
+            // Technical details
+            if (data.details) {
+                detailsToggle.classList.remove("hidden");
+                details.innerHTML = Object.entries(data.details).map(([k, v]) =>
+                    `<div class="flex justify-between"><span class="text-gray-500">${escapeHtml(k.replace(/_/g, ' '))}:</span> <span class="font-semibold">${escapeHtml(String(v))}</span></div>`
+                ).join('');
+            }
         }
 
-        // Add a new scan entry to the history
-        function updateHistory(url, status) {
-            const entry = { url, status };
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.appendChild(document.createTextNode(text));
+            return div.innerHTML;
+        }
+
+        function toggleDetails() {
+            const details = document.getElementById("technicalDetails");
+            const btn = document.getElementById("detailsToggle");
+            const isHidden = details.classList.contains("hidden");
+            details.classList.toggle("hidden");
+            btn.innerHTML = isHidden
+                ? '<i class="fas fa-chevron-up mr-1"></i> Hide Technical Details'
+                : '<i class="fas fa-chevron-down mr-1"></i> Show Technical Details';
+        }
+
+        function updateHistory(url, result, riskScore, riskLevel) {
+            const entry = { url, result, riskScore, riskLevel, time: new Date().toLocaleTimeString() };
             let history = JSON.parse(localStorage.getItem("scanHistory")) || [];
             history.unshift(entry);
+            if (history.length > 50) history = history.slice(0, 50);
             localStorage.setItem("scanHistory", JSON.stringify(history));
-
             renderHistory();
         }
 
-        // Render the scan history from local storage
         function renderHistory() {
             const historyList = document.getElementById("historyList");
+            const emptyMsg = document.getElementById("emptyHistory");
             const history = JSON.parse(localStorage.getItem("scanHistory")) || [];
+
             historyList.innerHTML = "";
+            emptyMsg.style.display = history.length === 0 ? "block" : "none";
+
             history.forEach(item => {
                 const li = document.createElement("li");
-                li.textContent = `${item.url} - ${item.status}`;
-                
-                let iconClass = '';
-                let bgColor = '';
-                let textColor = '';
+                const isSafe = item.result === "Safe";
+                const bgColor = isSafe ? "bg-green-50" : "bg-red-50";
+                const textColor = isSafe ? "text-green-700" : "text-red-700";
+                const iconClass = isSafe ? "fa-check-circle text-green-500" : "fa-exclamation-triangle text-red-500";
+                const score = item.riskScore !== undefined ? item.riskScore : "—";
 
-                if (item.status === "Safe") {
-                    iconClass = "fa-check-circle";
-                    bgColor = "bg-green-100";
-                    textColor = "text-green-800";
-                } else {
-                    iconClass = "fa-exclamation-triangle";
-                    bgColor = "bg-red-100";
-                    textColor = "text-red-800";
-                }
-
-                li.innerHTML = `<i class="fas ${iconClass} mr-2 ${textColor}"></i><span class="font-medium">${item.url}</span> - <span class="font-bold">${item.status}</span>`;
-                li.className = `p-3 rounded-md ${bgColor} shadow-sm`;
+                li.className = `p-3 rounded-lg ${bgColor} shadow-sm flex items-center justify-between`;
+                li.innerHTML = `
+                    <div class="flex items-center gap-2 min-w-0">
+                        <i class="fas ${iconClass} flex-shrink-0"></i>
+                        <span class="text-sm truncate max-w-xs">${escapeHtml(item.url)}</span>
+                    </div>
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <span class="text-xs ${textColor} font-bold">${score}/100</span>
+                        <span class="text-xs text-gray-400">${escapeHtml(item.time || '')}</span>
+                    </div>
+                `;
                 historyList.appendChild(li);
             });
         }
 
-        // Function to handle the URL scan
+        function clearHistory() {
+            localStorage.removeItem("scanHistory");
+            renderHistory();
+        }
+
         async function scanURL() {
             const urlInput = document.getElementById("urlInput").value.trim();
+            const btn = document.getElementById("scanBtn");
 
             if (!isValidURL(urlInput)) {
-                showResult("⚠️ Please enter a valid URL.", false);
+                showError("Please enter a valid URL (e.g., https://example.com)");
                 return;
             }
 
-            try {
-                // Display a loading message
-                showResult("⏳ Scanning...", false);
+            // Show loading state
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Scanning...';
+            btn.classList.add("opacity-75");
 
-                const response = await fetch("http://127.0.0.1:5000/scan", {
+            try {
+                const response = await fetch("http://127.0.0.1:10000/scan", {
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
+                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ url: urlInput })
                 });
 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
                 const data = await response.json();
-
-                const message = data.result === "Safe" ? "✅ The URL is safe." : "⚠️ Suspicious link detected!";
-                showResult(message, data.result === "Safe");
-                updateHistory(urlInput, data.result);
+                showResultPanel(data, urlInput);
+                updateHistory(urlInput, data.result, data.risk_score, data.risk_level);
 
             } catch (error) {
                 console.error("Error:", error);
-                showResult("❌ An error occurred while scanning the URL. Make sure the Python server is running.", false);
+                showError("Failed to scan URL. Make sure the Python server is running on port 10000.");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-search"></i> Scan';
+                btn.classList.remove("opacity-75");
             }
         }
-        
-        // Load history when the page loads
+
+        function showError(message) {
+            const panel = document.getElementById("resultPanel");
+            const header = document.getElementById("resultHeader");
+            const icon = document.getElementById("resultIcon");
+            const label = document.getElementById("resultLabel");
+            const urlText = document.getElementById("resultUrl");
+            const badge = document.getElementById("riskBadge");
+            const flagsList = document.getElementById("flagsList");
+
+            panel.classList.remove("hidden");
+            header.className = "p-4 rounded-t-lg flex items-center justify-between bg-gray-100 text-gray-700";
+            icon.className = "fas fa-exclamation-circle text-2xl text-gray-400";
+            label.textContent = "Error";
+            urlText.textContent = message;
+            badge.className = "hidden";
+            flagsList.innerHTML = "";
+            document.getElementById("riskMeterOverlay").style.width = "100%";
+            document.getElementById("riskScoreText").textContent = "—/100";
+            document.getElementById("detailsToggle").classList.add("hidden");
+            document.getElementById("technicalDetails").classList.add("hidden");
+        }
+
         window.onload = renderHistory;
     </script>
 </body>
